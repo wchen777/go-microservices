@@ -1,31 +1,17 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/wchen777/go-microservices/handlers"
 )
 
 func main() {
-
-	// http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
-	// 	log.Println("hello")
-	// 	d, err := ioutil.ReadAll((r.Body))
-
-	// 	// err check w/ response code
-	// 	if err != nil {
-	// 		http.Error(rw, "error caught", http.StatusBadRequest)
-	// 		// rw.WriteHeader(http.StatusBadRequest)
-	// 		// rw.Write([]byte("error caught"))
-	// 		return
-	// 	}
-
-	// 	log.Printf("Data %s\n", d)
-	// 	fmt.Fprintf(rw, "Hello %s", d)
-	// })
 
 	// create instance of new handler
 	l := log.New(os.Stdout, "product-api", log.LstdFlags)
@@ -46,8 +32,26 @@ func main() {
 		WriteTimeout: 1 * time.Second,
 	}
 
-	s.ListenAndServe()
+	// go routine to run the server and catch error and won't block
+	go func() {
+		err := s.ListenAndServe()
+		if err != nil {
+			l.Fatal(err)
+		}
+	}()
 
-	// http.ListenAndServe(":9090", sm)
+	// signal channel
+	sigChan := make(chan os.Signal)
+
+	// listen for interrupt and kill signals
+	signal.Notify(sigChan, os.Interrupt)
+	signal.Notify(sigChan, os.Kill)
+
+	sig := <-sigChan
+	l.Println("Received terminate, graceful shutdown", sig)
+
+	// graceful shutdown to finish work before cutting off after 30 seconds
+	tc, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	s.Shutdown(tc)
 
 }
