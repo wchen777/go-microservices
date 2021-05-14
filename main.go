@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/wchen777/go-microservices/handlers"
 )
 
@@ -17,12 +18,29 @@ func main() {
 	l := log.New(os.Stdout, "product-api", log.LstdFlags)
 	// hh := handlers.NewHello(l)
 	ph := handlers.NewProducts(l)
-	gh := handlers.NewGoodbye(l)
+	// gh := handlers.NewGoodbye(l)
 
-	// create new servemux for handler
-	sm := http.NewServeMux()
-	sm.Handle("/", ph)
-	sm.Handle("/goodbye", gh)
+	// // create new servemux for handler
+
+	// USING GO STANDARD
+	// sm := http.NewServeMux()
+	// sm.Handle("/s", ph)
+	// sm.Handle("/goodbye", gh)
+
+	// USING GORILLA
+	sm := mux.NewRouter()
+
+	// GORILLA TO SEPARATE GET
+	getRouter := sm.Methods(http.MethodGet).Subrouter()
+	getRouter.HandleFunc("/", ph.GetProducts)
+
+	putRouter := sm.Methods(http.MethodPut).Subrouter()
+	putRouter.HandleFunc("/{id:[0-9]+}", ph.UpdateProducts)
+	putRouter.Use(ph.MiddlewareProductValidation)
+
+	postRouter := sm.Methods(http.MethodPost).Subrouter()
+	postRouter.HandleFunc("/}", ph.AddProduct)
+	postRouter.Use(ph.MiddlewareProductValidation)
 
 	// start server with our serve mux
 	s := &http.Server{
